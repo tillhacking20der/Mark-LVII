@@ -83,7 +83,8 @@ from actions.web_search        import _news as _fetch_news_sync
 from memory.config_manager     import (
     get_brief_enabled, get_media_resolution, get_proactive_audio_enabled,
     get_push_to_talk_enabled, get_thinking_enabled, get_turn_tuning, get_voice,
-    get_wake_word_enabled, save_wake_word_enabled,    get_input_device, get_output_device,
+    get_wake_word_enabled, save_wake_word_enabled, get_input_device, get_output_device,
+    get_mods_preferences,
 )
 from core                     import gemini as _gemini
 from core.plugin_loader        import discover_plugins
@@ -1388,6 +1389,7 @@ class JarvisLive:
         memory     = load_memory()
         mem_str    = format_memory_for_prompt(memory)
         sys_prompt = _load_system_prompt()
+        mods_prefs = get_mods_preferences()
 
         now      = datetime.now()
         time_str = now.strftime("%A, %B %d, %Y — %I:%M %p")
@@ -1409,11 +1411,15 @@ class JarvisLive:
                       'language. Never an archaic or aristocratic form, and never '
                       'the form from a different language than the one you are '
                       'speaking in this sentence.')
+        preferred_language = str(mods_prefs.get("language") or "").strip()
+        language_ctx = (f"DEFAULT LANGUAGE: Use {preferred_language} unless the user speaks another language. "
+                        "Always follow the language of the user when they switch.\n"
+                        if preferred_language else "")
         identity_ctx = (
             f"[IDENTITY]\n"
             f"Your name is {self._asst_name}. "
             f"Always refer to yourself as {self._asst_name}.\n"
-            f"{_addr}\n\n"
+            f"{_addr}\n{language_ctx}\n"
         )
 
         # Everything the model is told about *itself* is derived here, not
@@ -2242,8 +2248,10 @@ class JarvisLive:
             e = identity.get(k, {})
             return (e.get("value", "") if isinstance(e, dict) else str(e)).strip()
 
-        lang = _val("language")
+        mods_prefs = get_mods_preferences()
+        lang = _val("language") or str(mods_prefs.get("language") or "").strip()
         name = _val("name")
+        greeting = str(mods_prefs.get("greeting") or "").strip()
         time_str = datetime.now().strftime("%H:%M")
 
         # What the briefing covers is the routine's to say (core/routines): the
@@ -2285,8 +2293,10 @@ class JarvisLive:
                 f" Also briefly and naturally mention that {_when}: {last['summary']}"
             )
 
+        greeting_clause = (f" Start with this user-configured greeting: {greeting!r}."
+                           if greeting else " Greet the user warmly.")
         p1 = (
-            f"Greet the user warmly, mention it is {time_str}"
+            f"{greeting_clause} Mention it is {time_str}"
             f"{', and say you are fetching the news now' if want_news else ''}.{session_clause} "
             f"Keep it to 2 short sentences max. Do not call any tools.{lang_clause}{name_clause}"
         )
