@@ -118,7 +118,17 @@ class ModsHubDialog(QDialog):
         self.location=QLineEdit(); self.location.setPlaceholderText("Stadt, Land, Straße, Hausnummer oder Sehenswürdigkeit …"); v.addWidget(self.location)
         row=QHBoxLayout(); search=QPushButton("SEARCH LOCATION"); search.clicked.connect(self._search_location); row.addWidget(search)
         row.addWidget(self._link("OPEN MAP","https://www.openstreetmap.org/"))
-        row.addWidget(self._link("SATELLITE MAP","https://www.google.com/maps/@?api=1&map_action=map")); v.addLayout(row); layout.addWidget(group)
+        row.addWidget(self._link("SATELLITE MAP","https://www.google.com/maps/@?api=1&map_action=map")); v.addLayout(row)
+        row=QHBoxLayout()
+        save_place=QPushButton("SAVE LOCATION"); save_place.clicked.connect(self._save_location); row.addWidget(save_place)
+        self.world_favorites=QListWidget()
+        for place in self._world_favorites(): self.world_favorites.addItem(place)
+        self.world_favorites.itemDoubleClicked.connect(lambda item:self._open_location(item.text()))
+        v.addLayout(row); v.addWidget(self.world_favorites)
+        row=QHBoxLayout()
+        open_place=QPushButton("OPEN SELECTED"); open_place.clicked.connect(self._open_selected_location); row.addWidget(open_place)
+        remove_place=QPushButton("REMOVE SELECTED"); remove_place.clicked.connect(self._remove_location); row.addWidget(remove_place)
+        v.addLayout(row); layout.addWidget(group)
         space=QGroupBox("SPACE, LIVE TRACKING & WEATHER"); v=QVBoxLayout(space)
         row=QHBoxLayout(); row.addWidget(self._link("NASA SOLAR SYSTEM","https://eyes.nasa.gov/apps/solar-system/"))
         solar=QPushButton("LOCAL 3D SOLAR SYSTEM"); solar.clicked.connect(lambda:self._local_view("mods_solar.html")); row.addWidget(solar); v.addLayout(row)
@@ -134,6 +144,34 @@ class ModsHubDialog(QDialog):
         q=self.location.text().strip()
         if not q: QMessageBox.information(self,"Location","Bitte zuerst einen Ort eingeben."); return
         self._open("https://www.openstreetmap.org/search?query="+quote(q))
+
+    def _world_favorites(self):
+        try:
+            raw=self.prefs.get("world_favorites","[]"); values=json.loads(raw) if isinstance(raw,str) else raw
+            return [str(x) for x in values if str(x).strip()][:50]
+        except Exception: return []
+
+    def _save_location(self):
+        q=self.location.text().strip()
+        if not q: QMessageBox.information(self,"Location","Bitte zuerst einen Ort eingeben."); return
+        vals=self._world_favorites()
+        if q not in vals:
+            vals.append(q); self._save_prefs(world_favorites=json.dumps(vals[-50:],ensure_ascii=False)); self.world_favorites.addItem(q)
+
+    def _open_location(self,q):
+        self.location.setText(q)
+        self._open("https://www.openstreetmap.org/search?query="+quote(q))
+
+    def _open_selected_location(self):
+        item=self.world_favorites.currentItem()
+        if item: self._open_location(item.text())
+
+    def _remove_location(self):
+        item=self.world_favorites.currentItem()
+        if not item: return
+        vals=[x for x in self._world_favorites() if x!=item.text()]
+        self._save_prefs(world_favorites=json.dumps(vals,ensure_ascii=False))
+        self.world_favorites.takeItem(self.world_favorites.row(item))
 
     def _webcams_tab(self):
         page=QWidget(); layout=QVBoxLayout(page)
