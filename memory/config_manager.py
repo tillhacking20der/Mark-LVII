@@ -666,3 +666,22 @@ def save_providers(mode: str = None, pipeline: dict = None, creds: dict = None,
 
     data["providers"] = block
     _write_config(data)
+
+
+# ── MODS hub preferences ─────────────────────────────────────────────────────
+def get_mods_preferences() -> dict:
+    """Return optional preferences entered in the MODS hub."""
+    value = load_api_keys().get("mods_preferences", {})
+    return value if isinstance(value, dict) else {}
+
+
+@_locked
+def save_mods_preferences(preferences: dict) -> None:
+    """Persist non-secret MODS preferences without replacing API keys."""
+    data = _read_for_write()
+    current = data.get("mods_preferences", {})
+    if not isinstance(current, dict):
+        current = {}
+    current.update({str(k): str(v) for k, v in (preferences or {}).items()})
+    data["mods_preferences"] = current
+    _write_config(data)
