@@ -1,0 +1,33 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>MODS · Solar System</title>
+<style>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#02030a;color:#e7f7ff;font:14px Segoe UI,Arial}
+#space{position:absolute;inset:0;perspective:900px;display:grid;place-items:center;overflow:hidden}
+#system{position:relative;width:1px;height:1px;transform-style:preserve-3d;transform:rotateX(62deg)}
+.sun{position:absolute;width:66px;height:66px;border-radius:50%;left:-33px;top:-33px;background:radial-gradient(circle at 35% 30%,#fff9c9,#ffae28 42%,#e94d12 72%,transparent 74%);box-shadow:0 0 35px #ff9b25,0 0 100px #ff5b16}
+.orbit{position:absolute;border:1px solid #34516a88;border-radius:50%;left:0;top:0;transform:translate(-50%,-50%);animation:spin linear infinite}
+.planet{position:absolute;left:50%;top:0;border-radius:50%;transform:translate(-50%,-50%);box-shadow:inset -5px -3px 9px #0009,0 0 12px #8fcfff55}
+.saturn:after{content:"";position:absolute;width:190%;height:65%;left:-45%;top:18%;border:5px solid #c7ad82;border-left-color:#e8d5a8;border-right-color:#80694f;border-radius:50%;transform:rotate(-18deg)}
+.label{position:absolute;left:50%;top:-18px;transform:translateX(-50%) rotateX(-62deg);white-space:nowrap;color:#bed8e8;font-size:11px}
+header{position:absolute;z-index:3;left:16px;top:16px;background:#081624dd;border:1px solid #2b7189;border-radius:10px;padding:12px;max-width:calc(100% - 32px)}
+h1{font-size:16px;letter-spacing:2px;color:#69e5ff;margin:0 0 8px}p{margin:4px 0;color:#aac7d5;font-size:12px}
+button{margin:4px 4px 0 0;padding:8px 10px;background:#0b2535;color:#e5faff;border:1px solid #287c94;border-radius:6px;cursor:pointer}
+#detail{position:absolute;right:16px;bottom:16px;z-index:3;max-width:280px;background:#081624dd;border:1px solid #2b7189;border-radius:10px;padding:12px;color:#cde9f5}
+@keyframes orbit{to{transform:translate(-50%,-50%) rotate(360deg)}}
+</style></head><body><header><h1>MODS · SOLAR SYSTEM</h1><p>Animated 3D-style orbital model · educational, not to scale</p><button id="pause">PAUSE</button><button id="speed">SPEED ×2</button></header>
+<div id="space"><div id="system"><div class="sun"></div></div></div><div id="detail">Select a planet to view its information.</div>
+<script>
+const system=document.getElementById('system'),detail=document.getElementById('detail');
+const planets=[
+['Mercury',85,8,'#aaa9a3','A small rocky planet closest to the Sun.'],['Venus',125,13,'#d9ad72','A rocky planet with a very dense atmosphere.'],['Earth',170,14,'#398cce','Our home planet, with liquid water on its surface.'],['Mars',220,11,'#c65e43','A cold rocky world with the largest volcano known.'],['Jupiter',300,32,'#d5b18b','The largest planet, a gas giant with many moons.'],['Saturn',395,27,'#d9c49b','A gas giant surrounded by a spectacular ring system.'],['Uranus',485,21,'#87cfd2','An ice giant that rotates on a strongly tilted axis.'],['Neptune',570,20,'#4778db','A distant ice giant with very fast winds.']
+];
+const objects=[];
+planets.forEach(([name,r,size,color,desc],i)=>{
+ const orbit=document.createElement('div');orbit.className='orbit';orbit.style.width=(r*2)+'px';orbit.style.height=(r*2)+'px';orbit.style.animationDuration=(18+i*12)+'s';orbit.style.animationDelay=(-i*4)+'s';
+ const p=document.createElement('button');p.className='planet'+(name==='Saturn'?' saturn':'');p.style.width=size+'px';p.style.height=size+'px';p.style.background=color;p.style.border='0';p.style.padding='0';p.title=name;
+ p.addEventListener('click',()=>detail.innerHTML='<b>'+name+'</b><p>'+desc+'</p>');
+ const label=document.createElement('span');label.className='label';label.textContent=name;p.appendChild(label);orbit.appendChild(p);system.appendChild(orbit);objects.push(orbit);
+});
+let paused=false,fast=false;
+document.getElementById('pause').onclick=e=>{paused=!paused;objects.forEach(o=>o.style.animationPlayState=paused?'paused':'running');e.target.textContent=paused?'RESUME':'PAUSE'};
+document.getElementById('speed').onclick=e=>{fast=!fast;objects.forEach(o=>{const d=parseFloat(o.style.animationDuration);o.style.animationDuration=(fast?d/2:d*2)+'s'});e.target.textContent=fast?'SPEED ×1':'SPEED ×2'};
+</script></body></html>
