@@ -1251,6 +1251,17 @@ class MainWindow(QMainWindow):
         self._ctrl_btn.setToolTip("Controls — the everyday switches")
         self._ctrl_btn.clicked.connect(self._toggle_controls)
         lay.addWidget(self._ctrl_btn)
+        self._mods_btn = QPushButton("MODS")
+        self._mods_btn.setFont(px_font(9, QFont.Weight.Bold, spacing=1.2))
+        self._mods_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._mods_btn.setToolTip("MODS — Voice, World and public webcams")
+        self._mods_btn.setStyleSheet(f"""
+            QPushButton {{ color: {C.PRI}; background: transparent;
+                border: 1px solid {C.PRI_DIM}; padding: 6px 10px; border-radius: 3px; }}
+            QPushButton:hover {{ background: {C.PRI_GHO}; }}
+        """)
+        self._mods_btn.clicked.connect(self._open_mods_hub)
+        lay.addWidget(self._mods_btn)
         lay.addStretch()
 
         self._state_chip = StateChip()
@@ -1276,6 +1287,16 @@ class MainWindow(QMainWindow):
         self._fs_btn.clicked.connect(self._toggle_fullscreen)
         lay.addWidget(self._fs_btn)
         return w
+
+    def _open_mods_hub(self):
+        """Open the optional MODS hub on the Qt main thread."""
+        try:
+            from gui.mods_hub import ModsHubDialog
+            dialog = ModsHubDialog(self)
+            dialog.exec()
+        except Exception as exc:
+            from PyQt6.QtWidgets import QMessageBox
+            QMessageBox.warning(self, "MODS konnte nicht geöffnet werden", str(exc))
 
     def _tick_clock(self):
         self._clock_lbl.setText(time.strftime("%H:%M:%S"))
