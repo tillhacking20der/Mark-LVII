@@ -11,9 +11,12 @@
 header{position:absolute;z-index:3;left:16px;top:16px;background:#081624dd;border:1px solid #2b7189;border-radius:10px;padding:12px;max-width:calc(100% - 32px)}
 h1{font-size:16px;letter-spacing:2px;color:#69e5ff;margin:0 0 8px}p{margin:4px 0;color:#aac7d5;font-size:12px}
 button{margin:4px 4px 0 0;padding:8px 10px;background:#0b2535;color:#e5faff;border:1px solid #287c94;border-radius:6px;cursor:pointer}
+.moon-orbit{position:absolute;left:50%;top:50%;width:30px;height:30px;border:1px solid #c8e6f066;border-radius:50%;transform:translate(-50%,-50%);animation:moon 3s linear infinite;pointer-events:none}
+.moon{position:absolute;left:50%;top:-3px;width:6px;height:6px;background:#d7e0e5;border-radius:50%;transform:translateX(-50%)}
+@keyframes moon{to{transform:translate(-50%,-50%) rotate(360deg)}}
 #detail{position:absolute;right:16px;bottom:16px;z-index:3;max-width:280px;background:#081624dd;border:1px solid #2b7189;border-radius:10px;padding:12px;color:#cde9f5}
 @keyframes orbit{to{transform:translate(-50%,-50%) rotate(360deg)}}
-</style></head><body><header><h1>MODS · SOLAR SYSTEM</h1><p>Animated 3D-style orbital model · educational, not to scale</p><button id="pause">PAUSE</button><button id="speed">SPEED ×2</button></header>
+</style></head><body><header><h1>MODS · SOLAR SYSTEM</h1><p>Animated 3D-style orbital model · educational, not to scale</p><button id="pause">PAUSE</button><button id="speed">SPEED ×2</button><button id="saturn">ZOOM SATURN</button><button id="reset">RESET VIEW</button></header>
 <div id="space"><div id="system"><div class="sun"></div></div></div><div id="detail">Select a planet to view its information.</div>
 <script>
 const system=document.getElementById('system'),detail=document.getElementById('detail');
@@ -25,9 +28,25 @@ planets.forEach(([name,r,size,color,desc],i)=>{
  const orbit=document.createElement('div');orbit.className='orbit';orbit.style.width=(r*2)+'px';orbit.style.height=(r*2)+'px';orbit.style.animationDuration=(18+i*12)+'s';orbit.style.animationDelay=(-i*4)+'s';
  const p=document.createElement('button');p.className='planet'+(name==='Saturn'?' saturn':'');p.style.width=size+'px';p.style.height=size+'px';p.style.background=color;p.style.border='0';p.style.padding='0';p.title=name;
  p.addEventListener('click',()=>detail.innerHTML='<b>'+name+'</b><p>'+desc+'</p>');
+ if(['Earth','Mars','Jupiter','Saturn'].includes(name)){
+  const moonOrbit=document.createElement('span');moonOrbit.className='moon-orbit';
+  moonOrbit.style.width=(size*2.1)+'px';moonOrbit.style.height=(size*2.1)+'px';
+  moonOrbit.style.animationDuration=(name==='Jupiter'?'2.2s':'3.5s');
+  const moon=document.createElement('span');moon.className='moon';moonOrbit.appendChild(moon);p.appendChild(moonOrbit);
+ }
  const label=document.createElement('span');label.className='label';label.textContent=name;p.appendChild(label);orbit.appendChild(p);system.appendChild(orbit);objects.push(orbit);
 });
 let paused=false,fast=false;
 document.getElementById('pause').onclick=e=>{paused=!paused;objects.forEach(o=>o.style.animationPlayState=paused?'paused':'running');e.target.textContent=paused?'RESUME':'PAUSE'};
 document.getElementById('speed').onclick=e=>{fast=!fast;objects.forEach(o=>{const d=parseFloat(o.style.animationDuration);o.style.animationDuration=(fast?d/2:d*2)+'s'});e.target.textContent=fast?'SPEED ×1':'SPEED ×2'};
+document.getElementById('saturn').onclick=()=>{
+ const saturnOrbit=objects[5], saturn=saturnOrbit.querySelector('.planet');
+ objects.forEach((o,i)=>o.style.opacity=i===5?'1':'.08');
+ saturn.style.transform='translate(-50%,-50%) scale(4.5)';
+ detail.innerHTML='<b>Saturn close-up</b><p>Gas giant with a large ring system made mainly of ice and rock particles. This is an illustrative model, not a live telescope image.</p>';
+};
+document.getElementById('reset').onclick=()=>{
+ objects.forEach((o,i)=>{o.style.opacity='1';const p=o.querySelector('.planet');p.style.transform='translate(-50%,-50%)';});
+ detail.textContent='Select a planet to view its information.';
+};
 </script></body></html>
