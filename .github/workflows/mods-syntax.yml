@@ -1,4 +1,4 @@
-name: MODS syntax check
+name: MODS validation and ZIP
 
 on:
   push:
@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-  syntax:
+  validate-and-package:
     runs-on: ubuntu-latest
     steps:
       - name: Check out repository
@@ -20,3 +20,12 @@ jobs:
           python-version: "3.11"
       - name: Compile Python sources
         run: python -m compileall -q .
+      - name: Create project ZIP
+        run: git archive --format=zip --output=Mark-LVII-MODS.zip HEAD
+      - name: Upload ZIP artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mark-LVII-MODS
+          path: Mark-LVII-MODS.zip
+          if-no-files-found: error
+          retention-days: 14
