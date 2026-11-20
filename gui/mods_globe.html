@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>MODS · Earth</title>
+<style>
+html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020812;color:#d9f7ff;font:14px Segoe UI,Arial}
+#globeViz{position:absolute;inset:0}header{position:absolute;z-index:2;top:16px;left:16px;right:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#061522dd;border:1px solid #1c718b;border-radius:10px;padding:12px}
+h1{font-size:16px;letter-spacing:2px;margin:0 10px 0 0;color:#69e5ff}input,button{background:#0b2535;color:#e5faff;border:1px solid #287c94;border-radius:6px;padding:9px}input{min-width:230px;flex:1}button{cursor:pointer}button:hover{background:#164158}#status{font-size:12px;color:#8eb8c7}
+</style></head><body><div id="globeViz"></div>
+<header><h1>MODS · EARTH</h1><input id="place" placeholder="City, country, street or landmark"><button id="search">SEARCH</button><button id="map">OPEN MAP</button><button id="sat">SATELLITE MAP</button><span id="status">Drag to rotate · scroll to zoom</span></header>
+<script src="https://unpkg.com/globe.gl"></script>
+<script>
+const status=document.getElementById('status');
+const globe=Globe()(document.getElementById('globeViz'))
+ .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+ .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
+ .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
+ .showAtmosphere(true).atmosphereColor('#4bbce8').atmosphereAltitude(.18)
+ .pointAltitude('alt').pointColor('color').pointRadius(.32).labelText('label')
+ .labelSize(1.2).labelColor(()=> '#ffffff');
+globe.controls().autoRotate=true; globe.controls().autoRotateSpeed=.25;
+let marks=[];
+async function search(){
+ const q=document.getElementById('place').value.trim(); if(!q)return;
+ status.textContent='Searching…';
+ try{
+  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);
+  const res=await fetch(url,{headers:{'Accept':'application/json'}}); if(!res.ok)throw Error('Search service unavailable');
+  const data=await res.json(); if(!data.length)throw Error('No location found');
+  const p=data[0],lat=Number(p.lat),lng=Number(p.lon);
+  marks.push({lat,lng,alt:.02,color:'#ffcf5a',label:p.display_name});
+  globe.pointsData(marks).pointLabel('label').pointColor('color').pointAltitude('alt');
+  globe.pointOfView({lat,lng,altitude:1.4},1600); status.textContent=p.display_name;
+ }catch(e){status.textContent=e.message;}
+}
+document.getElementById('search').onclick=search;
+document.getElementById('place').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+document.getElementById('map').onclick=()=>{const q=document.getElementById('place').value.trim();window.open('https://www.openstreetmap.org/search?query='+encodeURIComponent(q),'_blank')};
+document.getElementById('sat').onclick=()=>{const q=document.getElementById('place').value.trim();window.open('https://www.google.com/maps/@?api=1&map_action=map&query='+encodeURIComponent(q),'_blank')};
+window.addEventListener('resize',()=>globe.width(innerWidth).height(innerHeight));
+globe.width(innerWidth).height(innerHeight);
+</script></body></html>
