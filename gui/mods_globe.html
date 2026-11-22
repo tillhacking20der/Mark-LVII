@@ -34,8 +34,8 @@ async function search(){
 }
 document.getElementById('search').onclick=search;
 document.getElementById('place').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
-document.getElementById('map').onclick=()=>{const q=document.getElementById('place').value.trim();window.open('https://www.openstreetmap.org/search?query='+encodeURIComponent(q),'_blank')};
-document.getElementById('sat').onclick=()=>{const q=document.getElementById('place').value.trim();window.open('https://www.google.com/maps/@?api=1&map_action=map&query='+encodeURIComponent(q),'_blank')};
+document.getElementById('map').onclick=()=>{const q=document.getElementById('place').value.trim();window.location.href='https://www.openstreetmap.org/search?query='+encodeURIComponent(q)};
+document.getElementById('sat').onclick=()=>{const q=document.getElementById('place').value.trim();window.location.href='https://www.google.com/maps/@?api=1&map_action=map&query='+encodeURIComponent(q)};
 window.addEventListener('resize',()=>globe.width(innerWidth).height(innerHeight));
 globe.width(innerWidth).height(innerHeight);
 </script></body></html>
