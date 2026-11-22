@@ -4,14 +4,15 @@ import json
 from pathlib import Path
 from urllib.parse import quote
 from PyQt6.QtCore import Qt, QUrl
-from PyQt6.QtGui import QDesktopServices, QFont
+from PyQt6.QtGui import QFont
 from PyQt6.QtWidgets import QComboBox, QDialog, QFormLayout, QGroupBox, QHBoxLayout, QLabel, QLineEdit, QListWidget, QMessageBox, QPushButton, QTabWidget, QVBoxLayout, QWidget
+from PyQt6.QtWebEngineWidgets import QWebEngineView
 from gui.theme import C
 from gui.style import px_font
 
 
 class ModsHubDialog(QDialog):
-    """MODS dialog; WebGL views run in the system browser to avoid QtWebEngine issues."""
+    """MODS dialog with embedded browser views for World and Webcams."""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setWindowTitle("MODS — J.A.R.V.I.S.")
@@ -59,21 +60,27 @@ class ModsHubDialog(QDialog):
         except Exception as exc:
             QMessageBox.warning(self,"Speichern fehlgeschlagen",str(exc))
 
-    def _open(self,url):
-        if not QDesktopServices.openUrl(QUrl(url)):
-            QMessageBox.warning(self,"Browser","Der Link konnte nicht geöffnet werden.")
+    def _open(self,url,browser=None):
+        target=browser or getattr(self,"world_browser",None)
+        if target is None:
+            QMessageBox.warning(self,"MODS","Die interne Browserfläche ist noch nicht bereit.")
+            return
+        target.setUrl(QUrl(url))
 
-    def _link(self,label,url):
+    def _link(self,label,url,browser=None):
         b=QPushButton(label); b.setCursor(Qt.CursorShape.PointingHandCursor)
-        b.clicked.connect(lambda _=False,u=url:self._open(u))
+        b.clicked.connect(lambda _=False,u=url,w=browser:self._open(u,w))
         return b
 
-    def _local_view(self,name):
+    def _local_view(self,name,browser=None):
         path=Path(__file__).resolve().parent/name
         if not path.is_file():
             QMessageBox.warning(self,"MODS",f"Datei fehlt: {name}"); return
-        if not QDesktopServices.openUrl(QUrl.fromLocalFile(str(path))):
-            QMessageBox.warning(self,"MODS","Die 3D-Ansicht konnte nicht geöffnet werden.")
+        target=browser or getattr(self,"world_browser",None)
+        if target is None:
+            QMessageBox.warning(self,"MODS","Die interne Browserfläche ist noch nicht bereit.")
+            return
+        target.setUrl(QUrl.fromLocalFile(str(path)))
 
     def _voice_tab(self):
         page=QWidget(); layout=QVBoxLayout(page)
@@ -110,15 +117,15 @@ class ModsHubDialog(QDialog):
 
     def _world_tab(self):
         page=QWidget(); layout=QVBoxLayout(page)
-        intro=QLabel("Interaktiver 3D-Globus mit Orts- und Straßensuche, Karten-/Satellitenumschaltung und Markierungen. Die Ansicht läuft im normalen Browser statt im eingebetteten Qt-Browser.")
+        intro=QLabel("Interaktiver 3D-Globus mit Orts- und Straßensuche. Der Globus und Karten werden direkt hier in Mark-LVII angezeigt.")
         intro.setWordWrap(True); layout.addWidget(intro)
         globe=QPushButton("OPEN INTERACTIVE 3D GLOBE")
-        globe.clicked.connect(lambda:self._local_view("mods_globe.html")); layout.addWidget(globe)
+        globe.clicked.connect(lambda:self._local_view("mods_globe.html",self.world_browser)); layout.addWidget(globe)
         group=QGroupBox("LOCATION SEARCH"); v=QVBoxLayout(group)
         self.location=QLineEdit(); self.location.setPlaceholderText("Stadt, Land, Straße, Hausnummer oder Sehenswürdigkeit …"); v.addWidget(self.location)
         row=QHBoxLayout(); search=QPushButton("SEARCH LOCATION"); search.clicked.connect(self._search_location); row.addWidget(search)
-        row.addWidget(self._link("OPEN MAP","https://www.openstreetmap.org/"))
-        row.addWidget(self._link("SATELLITE MAP","https://www.google.com/maps/@?api=1&map_action=map")); v.addLayout(row)
+        row.addWidget(self._link("OPEN MAP","https://www.openstreetmap.org/",self.world_browser))
+        row.addWidget(self._link("SATELLITE MAP","https://www.google.com/maps/@?api=1&map_action=map",self.world_browser)); v.addLayout(row)
         row=QHBoxLayout()
         save_place=QPushButton("SAVE LOCATION"); save_place.clicked.connect(self._save_location); row.addWidget(save_place)
         self.world_favorites=QListWidget()
@@ -130,20 +137,25 @@ class ModsHubDialog(QDialog):
         remove_place=QPushButton("REMOVE SELECTED"); remove_place.clicked.connect(self._remove_location); row.addWidget(remove_place)
         v.addLayout(row); layout.addWidget(group)
         space=QGroupBox("SPACE, LIVE TRACKING & WEATHER"); v=QVBoxLayout(space)
-        row=QHBoxLayout(); row.addWidget(self._link("NASA SOLAR SYSTEM","https://eyes.nasa.gov/apps/solar-system/"))
-        solar=QPushButton("LOCAL 3D SOLAR SYSTEM"); solar.clicked.connect(lambda:self._local_view("mods_solar.html")); row.addWidget(solar); v.addLayout(row)
+        row=QHBoxLayout(); row.addWidget(self._link("NASA SOLAR SYSTEM","https://eyes.nasa.gov/apps/solar-system/",self.world_browser))
+        solar=QPushButton("LOCAL 3D SOLAR SYSTEM"); solar.clicked.connect(lambda:self._local_view("mods_solar.html",self.world_browser)); row.addWidget(solar); v.addLayout(row)
         row=QHBoxLayout()
         for label,url in [("SATELLITES / ISS","https://www.n2yo.com/"),("AIRCRAFT","https://www.flightradar24.com/"),("SHIPS","https://www.marinetraffic.com/"),("WEATHER / RADAR","https://www.windy.com/")]:
-            row.addWidget(self._link(label,url))
+            row.addWidget(self._link(label,url,self.world_browser))
         v.addLayout(row); layout.addWidget(space)
         note=QLabel("Echtzeitdaten für Flugzeuge, Schiffe, Satelliten und Wetter kommen von den jeweiligen öffentlichen Anbietern; Verfügbarkeit und Verzögerungen hängen von ihnen ab.")
         note.setWordWrap(True); note.setStyleSheet(f"color:{C.TEXT_DIM}; padding:6px;"); layout.addWidget(note)
-        layout.addStretch(); return page
+        self.world_browser=QWebEngineView(page)
+        self.world_browser.setMinimumHeight(280)
+        self.world_browser.setUrl(QUrl.fromLocalFile(str(Path(__file__).resolve().parent/"mods_globe.html")))
+        layout.addWidget(self.world_browser,1)
+        return page
 
     def _search_location(self):
         q=self.location.text().strip()
         if not q: QMessageBox.information(self,"Location","Bitte zuerst einen Ort eingeben."); return
-        self._open("https://www.openstreetmap.org/search?query="+quote(q))
+        js = "const i=document.getElementById('place'); if(i){i.value="+json.dumps(q)+"; document.getElementById('search').click();}"
+        self.world_browser.page().runJavaScript(js)
 
     def _world_favorites(self):
         try:
@@ -160,7 +172,8 @@ class ModsHubDialog(QDialog):
 
     def _open_location(self,q):
         self.location.setText(q)
-        self._open("https://www.openstreetmap.org/search?query="+quote(q))
+        js = "const i=document.getElementById('place'); if(i){i.value="+json.dumps(q)+"; document.getElementById('search').click();}"
+        self.world_browser.page().runJavaScript(js)
 
     def _open_selected_location(self):
         item=self.world_favorites.currentItem()
@@ -182,16 +195,20 @@ class ModsHubDialog(QDialog):
         row=QHBoxLayout(); search=QPushButton("SEARCH PUBLIC WEBCAMS"); search.clicked.connect(self._search_webcams); row.addWidget(search)
         save=QPushButton("SAVE SEARCH"); save.clicked.connect(self._save_favorite); row.addWidget(save); v.addLayout(row); layout.addWidget(group)
         dirs=QGroupBox("PUBLIC WEBCAM DIRECTORIES"); row=QHBoxLayout(dirs)
-        row.addWidget(self._link("SKYLINE WEBCAMS","https://www.skylinewebcams.com/"))
-        row.addWidget(self._link("EARTHCAM","https://www.earthcam.com/"))
-        row.addWidget(self._link("WINDY WEBCAMS","https://www.windy.com/webcams")); layout.addWidget(dirs)
+        row.addWidget(self._link("SKYLINE WEBCAMS","https://www.skylinewebcams.com/",self.webcam_browser))
+        row.addWidget(self._link("EARTHCAM","https://www.earthcam.com/",self.webcam_browser))
+        row.addWidget(self._link("WINDY WEBCAMS","https://www.windy.com/webcams",self.webcam_browser)); layout.addWidget(dirs)
         fav=QGroupBox("SAVED SEARCHES"); v=QVBoxLayout(fav); self.favorites=QListWidget()
         for q in self._favorites(): self.favorites.addItem(q)
         self.favorites.itemDoubleClicked.connect(lambda item:self._open_query(item.text())); v.addWidget(self.favorites)
         row=QHBoxLayout(); op=QPushButton("OPEN SELECTED"); op.clicked.connect(self._open_selected); row.addWidget(op)
         rm=QPushButton("REMOVE SELECTED"); rm.clicked.connect(self._remove_selected); row.addWidget(rm); v.addLayout(row)
-        layout.addWidget(fav,1)
-        note=QLabel("Es gibt kein vollständiges öffentliches Weltverzeichnis aller Kameras. Verfügbarkeit und Live-Stream hängen vom Betreiber ab.")
+        layout.addWidget(fav)
+        self.webcam_browser=QWebEngineView(page)
+        self.webcam_browser.setMinimumHeight(300)
+        self.webcam_browser.setUrl(QUrl("https://www.google.com/search?q=public+live+webcams"))
+        layout.addWidget(self.webcam_browser,1)
+        note=QLabel("Suchergebnisse und öffentliche Webcam-Seiten werden innerhalb dieses Fensters angezeigt. Verfügbarkeit und Live-Stream hängen vom Betreiber ab.")
         note.setWordWrap(True); note.setStyleSheet(f"color:{C.TEXT_DIM}; padding:6px;"); layout.addWidget(note)
         return page
 
@@ -201,7 +218,7 @@ class ModsHubDialog(QDialog):
         self._open_query(q)
 
     def _open_query(self,q):
-        self._open("https://www.google.com/search?q="+quote("public live webcams "+q))
+        self._open("https://www.google.com/search?q="+quote("public live webcams "+q),self.webcam_browser)
 
     def _favorites(self):
         try:
