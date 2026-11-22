@@ -24,6 +24,8 @@ import psutil
 os.environ.setdefault("QT_LOGGING_RULES", "qt.multimedia.*=false")
 
 from PyQt6.QtWidgets import QApplication
+# Import Qt WebEngine before QApplication exists; Qt requires this initialization order.
+from PyQt6.QtWebEngineWidgets import QWebEngineView  # noqa: F401
 
 from gui import hud as _gui_hud
 from gui import metrics as _gui_metrics
