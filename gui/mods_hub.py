@@ -119,14 +119,23 @@ class ModsHubDialog(QDialog):
         page=QWidget(); layout=QVBoxLayout(page)
         intro=QLabel("Interaktiver 3D-Globus mit Orts- und Straßensuche. Der Globus und Karten werden direkt hier in Mark-LVII angezeigt.")
         intro.setWordWrap(True); layout.addWidget(intro)
+        style_row=QHBoxLayout()
+        style_row.addWidget(QLabel("GLOBE STYLE:"))
+        self.globe_style=QComboBox()
+        self.globe_style.addItem("Realistic satellite", "realistic")
+        self.globe_style.addItem("Futuristic hologram", "futuristic")
+        saved_style=str(self.prefs.get("globe_style","realistic"))
+        self.globe_style.setCurrentIndex(max(0,self.globe_style.findData(saved_style)))
+        self.globe_style.currentIndexChanged.connect(self._save_globe_style)
+        style_row.addWidget(self.globe_style,1)
+        layout.addLayout(style_row)
         self.world_browser=QWebEngineView(page)
-        globe=QPushButton("OPEN INTERACTIVE 3D GLOBE")
+        globe=QPushButton("OPEN LOCAL 3D EARTH")
         globe.clicked.connect(lambda:self._local_view("mods_globe.html",self.world_browser)); layout.addWidget(globe)
         group=QGroupBox("LOCATION SEARCH"); v=QVBoxLayout(group)
         self.location=QLineEdit(); self.location.setPlaceholderText("Stadt, Land, Straße, Hausnummer oder Sehenswürdigkeit …"); v.addWidget(self.location)
         row=QHBoxLayout(); search=QPushButton("SEARCH LOCATION"); search.clicked.connect(self._search_location); row.addWidget(search)
-        row.addWidget(self._link("OPEN MAP","https://www.openstreetmap.org/",self.world_browser))
-        row.addWidget(self._link("SATELLITE MAP","https://www.google.com/maps/@?api=1&map_action=map",self.world_browser)); v.addLayout(row)
+        v.addLayout(row)
         row=QHBoxLayout()
         save_place=QPushButton("SAVE LOCATION"); save_place.clicked.connect(self._save_location); row.addWidget(save_place)
         self.world_favorites=QListWidget()
@@ -148,8 +157,15 @@ class ModsHubDialog(QDialog):
         note.setWordWrap(True); note.setStyleSheet(f"color:{C.TEXT_DIM}; padding:6px;"); layout.addWidget(note)
         self.world_browser.setMinimumHeight(280)
         self.world_browser.setUrl(QUrl.fromLocalFile(str(Path(__file__).resolve().parent/"mods_globe.html")))
+        self.world_browser.loadFinished.connect(lambda ok: self.world_browser.page().runJavaScript(
+            "setGlobeStyle("+json.dumps(str(self.prefs.get("globe_style","realistic")))+")" if ok else ""))
         layout.addWidget(self.world_browser,1)
         return page
+
+    def _save_globe_style(self, _index):
+        style=str(self.globe_style.currentData() or "realistic")
+        self._save_prefs(globe_style=style)
+        self.world_browser.page().runJavaScript("setGlobeStyle("+json.dumps(style)+")")
 
     def _search_location(self):
         q=self.location.text().strip()
