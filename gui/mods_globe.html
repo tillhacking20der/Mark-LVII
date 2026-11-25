@@ -1,41 +1,46 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
-<title>MODS · Earth</title>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mark-LVII · Local Earth</title>
 <style>
-html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020812;color:#d9f7ff;font:14px Segoe UI,Arial}
-#globeViz{position:absolute;inset:0}header{position:absolute;z-index:2;top:16px;left:16px;right:16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;background:#061522dd;border:1px solid #1c718b;border-radius:10px;padding:12px}
-h1{font-size:16px;letter-spacing:2px;margin:0 10px 0 0;color:#69e5ff}input,button{background:#0b2535;color:#e5faff;border:1px solid #287c94;border-radius:6px;padding:9px}input{min-width:230px;flex:1}button{cursor:pointer}button:hover{background:#164158}#status{font-size:12px;color:#8eb8c7}
-</style></head><body><div id="globeViz"></div>
-<header><h1>MODS · EARTH</h1><input id="place" placeholder="City, country, street or landmark"><button id="search">SEARCH</button><button id="map">OPEN MAP</button><button id="sat">SATELLITE MAP</button><span id="status">Drag to rotate · scroll to zoom</span></header>
-<script src="https://unpkg.com/globe.gl"></script>
+*{box-sizing:border-box}html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#020711;color:#dff8ff;font:13px Segoe UI,Arial}
+canvas{display:block;width:100%;height:100%;touch-action:none}
+#panel{position:absolute;left:14px;top:14px;right:14px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;padding:10px 12px;background:#071725ef;border:1px solid #24728a;border-radius:10px;box-shadow:0 8px 30px #0008}
+h1{font-size:14px;letter-spacing:2px;color:#6ee7ff;margin:0 8px 0 0}input,button{background:#0b2637;color:#e6fbff;border:1px solid #287b94;border-radius:6px;padding:8px}input{min-width:150px;flex:1}button{cursor:pointer}button.active{background:#15516a;border-color:#7cecff}#status{color:#9ac4d2;font-size:11px;flex-basis:100%}#hint{position:absolute;bottom:12px;left:14px;color:#9ac4d2;background:#071725bb;padding:7px 10px;border-radius:6px}
+</style></head><body>
+<canvas id="earth"></canvas>
+<div id="panel"><h1>MARK-LVII · EARTH</h1><input id="place" placeholder="Offline-Suche: Berlin, London, New York…"><button id="search">SEARCH</button><button id="real" class="active">REALISTIC</button><button id="future">FUTURISTIC</button><button id="rotate">PAUSE ROTATION</button><span id="status">Eigene lokale 3D-Kugel · keine Karten-Website und keine externe Globe-Bibliothek</span></div>
+<div id="hint">Ziehen = drehen · Mausrad = zoomen</div>
 <script>
-const status=document.getElementById('status');
-const globe=Globe()(document.getElementById('globeViz'))
- .globeImageUrl('https://unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
- .bumpImageUrl('https://unpkg.com/three-globe/example/img/earth-topology.png')
- .backgroundImageUrl('https://unpkg.com/three-globe/example/img/night-sky.png')
- .showAtmosphere(true).atmosphereColor('#4bbce8').atmosphereAltitude(.18)
- .pointAltitude('alt').pointColor('color').pointRadius(.32).labelText('label')
- .labelSize(1.2).labelColor(()=> '#ffffff');
-globe.controls().autoRotate=true; globe.controls().autoRotateSpeed=.25;
-let marks=[];
-async function search(){
- const q=document.getElementById('place').value.trim(); if(!q)return;
- status.textContent='Searching…';
- try{
-  const url='https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q='+encodeURIComponent(q);
-  const res=await fetch(url,{headers:{'Accept':'application/json'}}); if(!res.ok)throw Error('Search service unavailable');
-  const data=await res.json(); if(!data.length)throw Error('No location found');
-  const p=data[0],lat=Number(p.lat),lng=Number(p.lon);
-  marks.push({lat,lng,alt:.02,color:'#ffcf5a',label:p.display_name});
-  globe.pointsData(marks).pointLabel('label').pointColor('color').pointAltitude('alt');
-  globe.pointOfView({lat,lng,altitude:1.4},1600); status.textContent=p.display_name;
- }catch(e){status.textContent=e.message;}
-}
-document.getElementById('search').onclick=search;
-document.getElementById('place').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
-document.getElementById('map').onclick=()=>{const q=document.getElementById('place').value.trim();window.location.href='https://www.openstreetmap.org/search?query='+encodeURIComponent(q)};
-document.getElementById('sat').onclick=()=>{const q=document.getElementById('place').value.trim();window.location.href='https://www.google.com/maps/@?api=1&map_action=map&query='+encodeURIComponent(q)};
-window.addEventListener('resize',()=>globe.width(innerWidth).height(innerHeight));
-globe.width(innerWidth).height(innerHeight);
+(()=>{
+const canvas=document.getElementById('earth'),ctx=canvas.getContext('2d'),status=document.getElementById('status');
+let w=0,h=0,dpr=1,lon=-.45,lat=.18,zoom=1,style='realistic',auto=true,drag=null;
+const cities={'berlin':[52.52,13.405],'london':[51.507,-.128],'new york':[40.713,-74.006],'paris':[48.857,2.352],'tokyo':[35.676,139.65],'siegen':[50.875,8.024],'sydney':[-33.869,151.209],'rome':[41.903,12.496],'madrid':[40.416,-3.704],'moscow':[55.756,37.617],'cairo':[30.044,31.236],'dubai':[25.204,55.270],'toronto':[43.653,-79.383],'los angeles':[34.052,-118.244],'singapore':[1.352,103.82],'amsterdam':[52.367,4.904],'hamburg':[53.551,9.993],'munich':[48.137,11.576]};
+const continents=[
+[[-168,72],[-145,68],[-130,55],[-124,48],[-117,32],[-106,23],[-98,17],[-82,9],[-78,24],[-80,32],[-67,45],[-60,52],[-80,60],[-100,72],[-130,72]],
+[[-81,12],[-72,8],[-60,5],[-50,-2],[-44,-14],[-52,-28],[-58,-40],[-70,-55],[-77,-35],[-80,-10]],
+[[-10,72],[20,72],[42,60],[58,55],[80,58],[100,52],[125,48],[145,55],[165,60],[175,50],[155,40],[140,35],[130,20],[115,5],[100,0],[85,8],[75,22],[58,25],[45,12],[35,30],[25,35],[10,37],[-5,35],[-17,15],[-5,5],[10,-5],[28,-35],[18,-35],[5,-25],[-5,5],[-15,20],[-20,40],[-10,55]],
+[[112,-11],[130,-12],[145,-20],[153,-28],[145,-39],[130,-35],[115,-25]],
+[[-52,82],[-25,78],[-18,65],[-42,58],[-58,68]],[[47,-13],[51,-17],[49,-25],[44,-22]]
+];
+function resize(){dpr=Math.min(devicePixelRatio||1,2);w=canvas.clientWidth;h=canvas.clientHeight;canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0)}
+function project(lo,la,cx,cy,r){const L=lo*Math.PI/180,P=la*Math.PI/180,dl=L-lon;const x=Math.cos(P)*Math.sin(dl),y=Math.sin(P)*Math.cos(lat)-Math.cos(P)*Math.cos(dl)*Math.sin(lat),z=Math.sin(P)*Math.sin(lat)+Math.cos(P)*Math.cos(dl)*Math.cos(lat);if(z<-.015)return null;return[cx+r*x,cy-r*y,z]}
+function drawPoly(poly,cx,cy,r,fill,stroke){ctx.beginPath();let started=false;for(const p of poly){const q=project(p[0],p[1],cx,cy,r);if(!q){started=false;continue}if(!started){ctx.moveTo(q[0],q[1]);started=true}else ctx.lineTo(q[0],q[1])}ctx.closePath();ctx.fillStyle=fill;ctx.fill();if(stroke){ctx.strokeStyle=stroke;ctx.lineWidth=.7;ctx.stroke()}}
+function draw(){ctx.clearRect(0,0,w,h);const cx=w/2,cy=h/2+18,r=Math.min(w*.34,h*.39)*zoom;const g=ctx.createRadialGradient(cx-r*.25,cy-r*.35,r*.05,cx,cy,r*1.2);if(style==='realistic'){g.addColorStop(0,'#3c94b5');g.addColorStop(.72,'#0b456b');g.addColorStop(1,'#031322')}else{g.addColorStop(0,'#073e61');g.addColorStop(.78,'#031c38');g.addColorStop(1,'#010914')}
+ctx.save();ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.clip();ctx.fillStyle=g;ctx.fillRect(cx-r,cy-r,2*r,2*r);
+for(const p of continents)drawPoly(p,cx,cy,r,style==='realistic'?'#4b936d':'#0a7897',style==='realistic'?'#80b18b':'#4cecff');
+ctx.lineWidth=style==='realistic'?.45:.8;ctx.strokeStyle=style==='realistic'?'#b5e9ff30':'#36dfff70';
+for(let a=-60;a<=60;a+=30){ctx.beginPath();for(let t=-180;t<=180;t+=3){const p=project(t,a,cx,cy,r);if(p){if(t===-180)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}}ctx.stroke()}
+for(let a=-150;a<180;a+=30){ctx.beginPath();for(let t=-90;t<=90;t+=3){const p=project(a,t,cx,cy,r);if(p){if(t===-90)ctx.moveTo(p[0],p[1]);else ctx.lineTo(p[0],p[1])}}ctx.stroke()}
+const sh=ctx.createRadialGradient(cx-r*.42,cy-r*.4,r*.1,cx,cy,r*1.05);sh.addColorStop(0,'#0000');sh.addColorStop(.72,'#0002');sh.addColorStop(1,'#000c');ctx.fillStyle=sh;ctx.fillRect(cx-r,cy-r,2*r,2*r);if(style==='futuristic'){ctx.strokeStyle='#53eaff';ctx.lineWidth=2;ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.stroke();ctx.strokeStyle='#55dfff55';ctx.beginPath();ctx.arc(cx,cy,r*1.08,0,Math.PI*2);ctx.stroke()}ctx.restore();
+ctx.beginPath();ctx.arc(cx,cy,r,0,Math.PI*2);ctx.strokeStyle=style==='realistic'?'#76d9ff99':'#43eaff';ctx.lineWidth=style==='realistic'?5:2;ctx.shadowBlur=style==='realistic'?18:25;ctx.shadowColor='#25bfff';ctx.stroke();ctx.shadowBlur=0;if(style==='futuristic'){ctx.fillStyle='#75edff';ctx.font='11px Segoe UI';ctx.fillText('PLANETARY SCAN // LOCAL SIMULATION',18,h-20)}}
+function tick(){if(auto&&!drag)lon+=.00045;draw();requestAnimationFrame(tick)}
+function setStyle(s){style=s==='futuristic'?'futuristic':'realistic';document.getElementById('real').classList.toggle('active',style==='realistic');document.getElementById('future').classList.toggle('active',style==='futuristic');draw()}window.setGlobeStyle=setStyle;
+document.getElementById('real').onclick=()=>setStyle('realistic');document.getElementById('future').onclick=()=>setStyle('futuristic');
+document.getElementById('rotate').onclick=e=>{auto=!auto;e.target.textContent=auto?'PAUSE ROTATION':'RESUME ROTATION'};
+function search(){const q=document.getElementById('place').value.trim().toLowerCase();if(!q)return;const p=cities[q];if(!p){status.textContent='Offline-Ortsliste kennt diesen Ort nicht. Beispiele: Berlin, London, Paris, New York, Tokio, Siegen.';return}lat=p[0]*Math.PI/180;lon=p[1]*Math.PI/180;zoom=Math.max(zoom,1.12);status.textContent='Lokaler Treffer: '+q+' · '+p[0].toFixed(2)+'°, '+p[1].toFixed(2)+'°';draw()}
+document.getElementById('search').onclick=search;document.getElementById('place').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+canvas.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];canvas.setPointerCapture(e.pointerId)});canvas.addEventListener('pointermove',e=>{if(!drag)return;lon-=(e.clientX-drag[0])*.006;lat+=(e.clientY-drag[1])*.006;lat=Math.max(-1.45,Math.min(1.45,lat));drag=[e.clientX,e.clientY];draw()});canvas.addEventListener('pointerup',()=>drag=null);canvas.addEventListener('pointercancel',()=>drag=null);
+canvas.addEventListener('wheel',e=>{e.preventDefault();zoom=Math.max(.65,Math.min(1.8,zoom*(e.deltaY<0?1.08:.92)));draw()},{passive:false});
+new ResizeObserver(resize).observe(canvas);resize();requestAnimationFrame(tick);
+})();
 </script></body></html>
